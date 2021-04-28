@@ -8,10 +8,14 @@ def main():
     cat_image: np.ndarray = cv2.imread('cat.png')  # cv2 will always read images in as BGR
     cat_image_gray: np.ndarray = cv2.cvtColor(cat_image, cv2.COLOR_BGR2GRAY)
     rows, cols = cat_image_gray.shape
-    rotate_matrix = cv2.getRotationMatrix2D(((cols - 1) / 2, (rows - 1) / 2), 90, 1)
 
-    # cat_image_gray_small: np.ndarray = cv2.resize(cat_image_gray, None, fx=0.5, fy=0.5)  # scale image
-    cat_image_gray_small = cv2.warpAffine(cat_image_gray, rotate_matrix, (cols, rows))  # rotate image
+    cat_image_gray_small: np.ndarray = cv2.resize(cat_image_gray, None, fx=0.5, fy=0.5)  # scale image
+    rotate_matrix = cv2.getRotationMatrix2D(((cols - 1) / 2, (rows - 1) / 2), 90, 1)
+    cat_image_gray_rotated: np.ndarray = cv2.warpAffine(cat_image_gray, rotate_matrix, (cols, rows))  # rotate image
+
+    ######################
+    # Feature Detection
+    ######################
 
     sift_obj: cv2.SIFT = cv2.SIFT_create()
     bfmatcher_obj = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
@@ -22,15 +26,35 @@ def main():
     sift_keypoints_small, sift_descriptors_small = sift_obj.detectAndCompute(cat_image_gray_small, None)
     # sift_image_small = cv2.drawKeypoints(cat_image_gray_small, sift_keypoints_small, None)
 
-    matches = bfmatcher_obj.match(sift_descriptors, sift_descriptors_small)
-    sift_matches = cv2.drawMatches(cat_image_gray, sift_keypoints,
-                                   cat_image_gray_small, sift_keypoints_small,
-                                   matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    sift_keypoints_rotated, sift_descriptors_rotated = sift_obj.detectAndCompute(cat_image_gray_rotated, None)
+
+    matches_small = bfmatcher_obj.match(sift_descriptors, sift_descriptors_small)
+    sift_matches_small = cv2.drawMatches(cat_image_gray, sift_keypoints,
+                                         cat_image_gray_small, sift_keypoints_small,
+                                         matches_small, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+    matches_rotated = bfmatcher_obj.match(sift_descriptors, sift_descriptors_rotated)
+    sift_matches_rotated = cv2.drawMatches(cat_image_gray, sift_keypoints,
+                                           cat_image_gray_rotated, sift_keypoints_rotated,
+                                           matches_rotated, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
 
     plt.figure(figsize=(10, 6))
-    plt.imshow(sift_matches)
-    plt.title('SIFT Matches')
+    plt.imshow(sift_matches_small)
+    plt.title('SIFT matches against smaller image')
     plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.imshow(sift_matches_rotated)
+    plt.title('SIFT matches against rotated image')
+    plt.show()
+
+    angle_diff_small = sift_keypoints[matches_small[0].queryIdx].angle - \
+                       sift_keypoints_small[matches_small[0].trainIdx].angle
+    print(f'Angle difference of scaled image: {angle_diff_small}')
+
+    angle_diff_rotated = sift_keypoints[matches_rotated[0].queryIdx].angle - \
+                       sift_keypoints_rotated[matches_rotated[0].trainIdx].angle
+    print(f'Angle difference of rotated image: {angle_diff_rotated}')
 
     # plt.figure(figsize=(7, 4))
     # plt.imshow(sift_image)
@@ -46,6 +70,10 @@ def main():
     # plt.imshow(orb_image)
     # plt.title('ORB keypoints')
     # plt.show()
+
+    ######################
+    # THRESHOLDING, CROPPING, and MASKING
+    ######################
 
     # cat_image = cv2.cvtColor(cat_image, cv2.COLOR_BGR2RGB)  # converting from BGR to RGB order
 
